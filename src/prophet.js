@@ -143,19 +143,10 @@ Bot.prototype.pickReply = function (input, responses) {
 };
 
 function wikiQuery(query) {
-  // ajax call to pass the bot information from wit ai
-  // $.ajax({
-  url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&generator=prefixsearch&redirects=1&converttitles=1&formatversion=2&exintro=1&explaintext=1&gpssearch=' + query,
-    //   success: function(data){
-    //     // output the witai response to the console
-    //     console.emit("[WIKI RESPONSE]: " + JSON.stringify(data));
-    //     // Save the wit ai response to the console
-    //     //SaveFunction.saveChatLog("\n[WIKI RESPONSE TO] '" + input + "' -> " + JSON.stringify(data) + "\n");
+  //Take the last character out of the query. Usually punctuation
+  query = query.slice(0, -1);
 
-    //     //send the returned data from wit to the parser here
-    //     return (query);
-    //   }
-    // });
+  url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&generator=prefixsearch&redirects=1&converttitles=1&formatversion=2&exintro=1&explaintext=1&gpssearch=' + query,
     https.get(url, (resp) => {
       let data = '';
 
@@ -166,16 +157,20 @@ function wikiQuery(query) {
 
       // The whole response has been received. Print out the result.
       resp.on('end', () => {
-        console.log(JSON.parse(data).query);
-        //return JSON.parse(data);
+        //console.log(JSON.parse(data).query.pages);
+        jsonData = JSON.parse(data).query.pages
+
+        for (x in jsonData) {
+          if (jsonData[x].index == 1)
+            console.log(jsonData[x].extract);
+        }
       });
 
     }).on("error", (err) => {
       console.log("Error: " + err.message);
     });
 
-
-  //return data;
+  return query;
 }
 
 module.exports = Bot;
