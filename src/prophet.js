@@ -1,6 +1,6 @@
 // imports
 const logger = require("./logger");
-const config = require("./config");
+const keyconfig = require("./config");
 const { Wit } = require("node-wit");
 const app = require("express");
 const scripture = require("./scripture");
@@ -10,15 +10,15 @@ const https = require('https');
 
 // init the wit client using config file
 const client = new Wit({
-  accessToken: config.key,
+  accessToken: keyconfig.witkey,
 });
 
 // init the twit client
 var T = new Twit({
-  consumer_key: "Qjk4O502RbONlkdoQ0Znr2cAL",
-  consumer_secret: "8hU19VyeRBpkJ4VPmkUZdjpAXWXqMe4SrfaSnNxSWYDgU0VE0i",
-  access_token: "3142852962-qZsrXuCo07oyIbk3oow0PerlOERpSgyNfskHf9B",
-  access_token_secret: "4QTk9RXgW4VXn9fG62h04rjyYAQaIrReai1B0ryzakl1E",
+  consumer_key: keyconfig.twitconsumer_key,
+  consumer_secret: keyconfig.twitconsumer_secret,
+  access_token: keyconfig.twitaccess_token,
+  access_token_secret: keyconfig.twitaccess_token_secret,
 });
 
 
@@ -282,16 +282,16 @@ function latestTweet(data, bot) {
           logger.getTime() + logger.error("Could not find user " + username)
         );
         response.msg = "Sorry, I couldn't find the user " + username + "\n Make sure the twitter handle is exact";
-        console.log(msg);
+        //console.log(msg);
         bot.socket.emit("message", response);
       } else {
         if (result.data[0].user.screen_name == "benmwilsonn") {
           response.msg = "Sorry, I couldn't find the user " + username + "\n Make sure the twitter handle is exact";
-          console.log(response.msg);
+          //console.log(response.msg);
           bot.socket.emit("message", response);
         } else {
           response.msg = "Latest tweet from " + result.data[0].user.screen_name + ": " + result.data[0].text;
-          console.log(response.msg);
+          //console.log(response.msg);
           bot.socket.emit("message", response);
         }
 
