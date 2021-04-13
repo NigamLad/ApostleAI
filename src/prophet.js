@@ -7,13 +7,20 @@ const scripture = require("./scripture");
 const porter = require("./porterStemming.js");
 const Twit = require("twit");
 const https = require('https');
-const util = require('util');
-const request = require('request');
 
 // init the wit client using config file
 const client = new Wit({
   accessToken: config.key,
 });
+
+// init the twit client
+var T = new Twit({
+  consumer_key: "Qjk4O502RbONlkdoQ0Znr2cAL",
+  consumer_secret: "8hU19VyeRBpkJ4VPmkUZdjpAXWXqMe4SrfaSnNxSWYDgU0VE0i",
+  access_token: "3142852962-qZsrXuCo07oyIbk3oow0PerlOERpSgyNfskHf9B",
+  access_token_secret: "4QTk9RXgW4VXn9fG62h04rjyYAQaIrReai1B0ryzakl1E",
+});
+
 
 // constructor for new bots, parameters to pass socket information
 function Bot(botId, importSocket, importedIO) {
@@ -53,13 +60,15 @@ Bot.prototype.sendMessage = function (msg) {
         };
 
         try {
+          console.log(logger.getTime() + logger.info("Intent: ") + data.intents[0].name);
+
 
           if (data.intents[0].name == "wikiQuery") {
             //Pass data and bot to function
-            wikiQuery(data.entities["wit$wikipedia_search_query:wikipedia_search_query"][0].value, this);
+            wikiQuery(data, this);
           } else if (data.intents[0].name == "latestTweet") {
             //Pass data and bot to function
-            latestTweet(data.entities["wit$contact:contact"][0].value, this);
+            latestTweet(data, this);
           } else {
             response.msg = this.pickReply(data, scripture.responses);
             // temporary console return data with information about the bots response
@@ -88,10 +97,6 @@ Bot.prototype.sendMessage = function (msg) {
           // Emit a message event on the socket to be picked up by server
           this.socket.emit("message", response);
         }
-
-
-
-
       })
       // catch errors and log it to console on the error stream
       .catch(logger.error(console.error));
@@ -168,25 +173,39 @@ Bot.prototype.pickReply = function (input, responses) {
 };
 
 function wikiQuery(query, bot) {
-  //Take the last character out of the query. Usually punctuation
-  query = query.slice(0, -1);
-  //Replaces " " with underscore
-  //For some reason using replaceAll breaks the program, idk how it just do
-  query = query.replace(" ", "_");
-  query = query.replace(" ", "_");
-  query = query.replace(" ", "_");
-  query = query.replace(" ", "_");
-
   let response = {
     sender: bot.id,
     msg: "",
   };
 
+  try {
+    query = query.entities["wit$wikipedia_search_query:wikipedia_search_query"][0].value;
+  } catch {
+    response.msg = "Sorry I couldn't find anything about that";
+    console.log(logger.getTime() +
+      logger.error(
+        "Failed to query Wiki, Wit.AI could not recognize wiki entity"
+      ));
+    bot.socket.emit("message", response);
+    return;
+  }
+
+  //Take the last character out of the query. Usually punctuation
+  query = query.slice(0, -1);
+  //Replaces " " with underscore
+  //For some reason using replaceAll doesnt work so use single replace a few times
+  query = query.replace(" ", "_");
+  query = query.replace(" ", "_");
+  query = query.replace(" ", "_");
+  query = query.replace(" ", "_");
+
+
+
   console.log(
     logger.getTime() +
     "[Bot with ID " +
     bot.id +
-    "]: querying Wikipedia for " +
+    "]: Querying Wikipedia API for " +
     query
   );
 
@@ -216,7 +235,7 @@ function wikiQuery(query, bot) {
           bot.socket.emit("message", response);
         } catch {
           response.msg = "Sorry I couldn't find anything about " + query;
-          console.log(response.msg);
+          console.log(logger.getTime() + response.msg);
           bot.socket.emit("message", response);
         }
 
@@ -226,21 +245,26 @@ function wikiQuery(query, bot) {
 
     }).on("error", (err) => {
       response.msg = "Sorry I couldn't find anything about " + query;
-      console.log(response.msg);
+      console.log(logger.getTime() + response.msg);
       bot.socket.emit("message", response);
 
     });
 }
 
-var T = new Twit({
-  consumer_key: "Lk89Q2i1rnGNSOyKARYXibD4n",
-  consumer_secret: "EiIBwE7888ZE1CAIXM7VdFq4ZzsWflwWEhNezEEGSPKyTcpeGO",
-  access_token: "3142852962-54Y2JijZgqaiTCx4oi2Hw1Gs7TBkIFwvFj6PuiC",
-  access_token_secret: "Lv5QGc7MH7IfojbK4UI29DVdrAUZekNLTIS5lh1zzxwIU",
-});
-
-function latestTweet(username, bot) {
+function latestTweet(data, bot) {
   var msg = "";
+
+  try {
+    username = data.entities["wit$contact:contact"][0].value;
+  } catch {
+    response.msg = "Sorry I couldn't find a Twitter user with that name";
+    console.log(logger.getTime() +
+      logger.error(
+        "Failed to query Twitter, Wit.AI could not recognize Twitter contact entity"
+      ));
+    bot.socket.emit("message", response);
+    return;
+  }
 
   console.log(logger.getTime() + "Querying Twitter for user: " + username);
   T.get(
@@ -261,9 +285,17 @@ function latestTweet(username, bot) {
         console.log(msg);
         bot.socket.emit("message", response);
       } else {
-        response.msg = "Latest tweet from " + result.data[0].user.screen_name + ": " + result.data[0].text;
-        console.log(response.msg);
-        bot.socket.emit("message", response);
+        if (result.data[0].user.screen_name == "benmwilsonn") {
+          response.msg = "Sorry, I couldn't find the user " + username + "\n Make sure the twitter handle is exact";
+          console.log(response.msg);
+          bot.socket.emit("message", response);
+        } else {
+          response.msg = "Latest tweet from " + result.data[0].user.screen_name + ": " + result.data[0].text;
+          console.log(response.msg);
+          bot.socket.emit("message", response);
+        }
+
+
       }
     }
   ).catch(function () {
