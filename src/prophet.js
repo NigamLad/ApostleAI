@@ -5,8 +5,10 @@ const { Wit } = require("node-wit");
 const app = require("express");
 const scripture = require("./scripture");
 const porter = require("./porterStemming.js");
-
+const Twit = require("twit");
 const https = require('https');
+const util = require('util');
+const request = require('request');
 
 // init the wit client using config file
 const client = new Wit({
@@ -35,6 +37,7 @@ function Bot(botId, importSocket, importedIO) {
 Bot.prototype.sendMessage = function (msg) {
   // filter input with porterStemming
   let input = porter.textInput(msg.msg);
+  //let input = msg.msg;
 
   // this is wrapped in a timeout to create a delay
   setTimeout(() => {
@@ -49,24 +52,46 @@ Bot.prototype.sendMessage = function (msg) {
           msg: "",
         };
 
-        if (data.intents[0].name == "wikiQuery") {
-          response.msg = wikiQuery(data.entities["wit$wikipedia_search_query:wikipedia_search_query"][0].value);
-        } else {
+        try {
+
+          if (data.intents[0].name == "wikiQuery") {
+            //Pass data and bot to function
+            wikiQuery(data.entities["wit$wikipedia_search_query:wikipedia_search_query"][0].value, this);
+          } else if (data.intents[0].name == "latestTweet") {
+            //Pass data and bot to function
+            latestTweet(data.entities["wit$contact:contact"][0].value, this);
+          } else {
+            response.msg = this.pickReply(data, scripture.responses);
+            // temporary console return data with information about the bots response
+            console.log(
+              logger.getTime() +
+              "[Bot with ID " +
+              this.id +
+              "]: sending message " +
+              logger.info(JSON.stringify(response))
+            );
+
+            // Emit a message event on the socket to be picked up by server
+            this.socket.emit("message", response);
+          }
+        } catch {
           response.msg = this.pickReply(data, scripture.responses);
+          // temporary console return data with information about the bots response
+          console.log(
+            logger.getTime() +
+            "[Bot with ID " +
+            this.id +
+            "]: sending message " +
+            logger.info(JSON.stringify(response))
+          );
+
+          // Emit a message event on the socket to be picked up by server
+          this.socket.emit("message", response);
         }
 
-        // temporary console return data with information about the bots response
-        console.log(
-          logger.getTime() +
-          "[Bot with ID " +
-          this.id +
-          "]: sending message " +
-          logger.info(JSON.stringify(response))
-        );
 
-        // Emit a message event on the socket to be picked up by server
-        this.socket.emit("Intent: ", data.intents[0].name);
-        this.socket.emit("message", response);
+
+
       })
       // catch errors and log it to console on the error stream
       .catch(logger.error(console.error));
@@ -142,9 +167,28 @@ Bot.prototype.pickReply = function (input, responses) {
   return botReply;
 };
 
-function wikiQuery(query) {
+function wikiQuery(query, bot) {
   //Take the last character out of the query. Usually punctuation
   query = query.slice(0, -1);
+  //Replaces " " with underscore
+  //For some reason using replaceAll breaks the program, idk how it just do
+  query = query.replace(" ", "_");
+  query = query.replace(" ", "_");
+  query = query.replace(" ", "_");
+  query = query.replace(" ", "_");
+
+  let response = {
+    sender: bot.id,
+    msg: "",
+  };
+
+  console.log(
+    logger.getTime() +
+    "[Bot with ID " +
+    bot.id +
+    "]: querying Wikipedia for " +
+    query
+  );
 
   url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&generator=prefixsearch&redirects=1&converttitles=1&formatversion=2&exintro=1&explaintext=1&gpssearch=' + query,
     https.get(url, (resp) => {
@@ -157,20 +201,81 @@ function wikiQuery(query) {
 
       // The whole response has been received. Print out the result.
       resp.on('end', () => {
-        //console.log(JSON.parse(data).query.pages);
-        jsonData = JSON.parse(data).query.pages
+        try {
+          jsonData = JSON.parse(data).query.pages
 
-        for (x in jsonData) {
-          if (jsonData[x].index == 1)
-            console.log(jsonData[x].extract);
+          for (x in jsonData) {
+            if (jsonData[x].index == 1)
+              response.msg = jsonData[x].extract.split(".")[0];
+
+          }
+
+          console.log(logger.getTime() + "Parsed Wiki response: " + response.msg);
+          bot.socket.emit("message", response);
+          response.msg = "Read more: " + "https://en.wikipedia.org/wiki/" + query;
+          bot.socket.emit("message", response);
+        } catch {
+          response.msg = "Sorry I couldn't find anything about " + query;
+          console.log(response.msg);
+          bot.socket.emit("message", response);
         }
+
       });
 
-    }).on("error", (err) => {
-      console.log("Error: " + err.message);
-    });
 
-  return query;
+
+    }).on("error", (err) => {
+      response.msg = "Sorry I couldn't find anything about " + query;
+      console.log(response.msg);
+      bot.socket.emit("message", response);
+
+    });
+}
+
+var T = new Twit({
+  consumer_key: "Lk89Q2i1rnGNSOyKARYXibD4n",
+  consumer_secret: "EiIBwE7888ZE1CAIXM7VdFq4ZzsWflwWEhNezEEGSPKyTcpeGO",
+  access_token: "3142852962-54Y2JijZgqaiTCx4oi2Hw1Gs7TBkIFwvFj6PuiC",
+  access_token_secret: "Lv5QGc7MH7IfojbK4UI29DVdrAUZekNLTIS5lh1zzxwIU",
+});
+
+function latestTweet(username, bot) {
+  var msg = "";
+
+  console.log(logger.getTime() + "Querying Twitter for user: " + username);
+  T.get(
+    "statuses/user_timeline",
+    { screen_name: username, count: 1 },
+  ).then(
+    function (result) {
+      let response = {
+        sender: bot.id,
+        msg: "",
+      };
+
+      if (result.data[0] == null) {
+        console.log(
+          logger.getTime() + logger.error("Could not find user " + username)
+        );
+        response.msg = "Sorry, I couldn't find the user " + username + "\n Make sure the twitter handle is exact";
+        console.log(msg);
+        bot.socket.emit("message", response);
+      } else {
+        response.msg = "Latest tweet from " + result.data[0].user.screen_name + ": " + result.data[0].text;
+        console.log(response.msg);
+        bot.socket.emit("message", response);
+      }
+    }
+  ).catch(function () {
+    let response = {
+      sender: bot.id,
+      msg: "",
+    };
+
+    response.msg = "Sorry, I couldn't find the user " + username + "\n Make sure the twitter handle is exact";
+    console.log(response.msg);
+    bot.socket.emit("message", response);
+  });
 }
 
 module.exports = Bot;
