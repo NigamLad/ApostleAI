@@ -79,6 +79,14 @@ Thanks to our prior work with Wit.AI we were able to implement Sentiment Analysi
 | 'I failed my exam' | `negative` | 'Sometimes life is hard, you can do it!' |
 | 'It is good to see you!' | `positive` | 'Hi There!' |
 
+**Implementation of Wikipedia API (For individual portion)**
+
+I have implemented a Wikipedia API call into the bot's functionality. The Wit.AI bot was further trained to understand when a search query is being requested from the user. The bot will parse out the search term and send it to the API. The API returns with a JSON object which is parsed to get the first sentence of the wiki article on that requested search query. If the query is not found on wiki, the bot will respond with not found. If found, the bot will send a message with the info and another message with the wiki link for further reading.
+
+**Implementation of Twitter API (For individual portion)**
+
+I have implemented the Twitter API call into the bot's functionality. The WIT.AI bot was further trained to understand when when the user wants to show the most recent tweet from a user. The bot will return with data and the twitter username is parsed out from the data. The username is sent to the Twitter API and it returns with the queried user's latest tweet or retweet. If a user is not found, the bot will respond with not found. If a user and their most recent tweet was found, the bot will respond by showing the requested user's tweet.
+
 **Implementation of Socket.IO for messaging between user and bot**
 
 Our team implemented [Socket.IO](https://socket.io/)  originally as a means to allow our bot to converse with other bots, however after many attempts to connect with other bot’s, we were unsuccessful since the Apostle was too intelligent for other bots to understand. Thankfully, we were able to refactor the code and utilize it to send messages back and forth between the user and the bot. This enables us to have as many simultaneous independent conversations with the bot across multiple chat windows.
